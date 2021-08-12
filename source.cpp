@@ -20,7 +20,7 @@ void handle_client(SOCKET clientSocket, string host, string port, sockaddr_in cl
 void handle_data(SOCKET clientSocket, string host, string port, string requestStr);
 void response_to_client(SOCKET clientSocket, string res);
 
-queue<SOCKET> sockets_q;
+// queue<SOCKET> sockets_q;
 queue<thread> clients_thread_queue;
 SOCKET listening_socket;
 
@@ -143,7 +143,7 @@ void response_to_client(SOCKET clientSocket, string res) {
 }
 
 int main() {
-	sockets_q = queue<SOCKET>();
+	// sockets_q = queue<SOCKET>();
 
 	// init winsock
 	WSADATA wsData;
