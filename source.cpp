@@ -156,7 +156,6 @@ int main() {
 	}
 	// winsock is initialized
 
-	cout << "server is up!" << endl;
 	start();
 
 	WSACleanup();
