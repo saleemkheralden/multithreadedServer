@@ -1,35 +1,30 @@
-#include "source.h"
+#include <iostream>
+#include <thread>
+#include <queue>
+#include <WS2tcpip.h> // sockets library
+
+#define PORT 56000
+
+#pragma comment (lib, "ws2_32.lib")
+
+using namespace std;
 
 
-Server::Server() {
-    cout << "When calling the function start it must be called in a new thread!" << endl;
-    this->client_thread_queue = queue<thread>();
-}
+void handle_data(SOCKET clientSocket, string host, string port, string requestStr);
+void receive_data(SOCKET clientSocket, string host, string port, sockaddr_in client);
+void listen_socket();
 
-Server::~Server() {
-    WSACleanup();
-}
+queue<SOCKET> sockets_q;
+queue<thread> threads;
+SOCKET listening_socket;
 
-boolean Server::init() {
-    // init winsock
-    WSADATA wsData;
-    WORD ver = MAKEWORD(ver, &wsData);
-    if (wsOk != 0) {
-        cerr << "Can't initialize winwock! quitting" << endl;
-		return false;
-    }
 
-    cout << "Winsock initiated!" << endl;
-    return true;
-}
+void listen_socket() {
 
-void Server::start() {
-    cout << "Starting server..." << endl;
-    
-    while (true) {
+	while (true) {
 
-		this->listening_socket = socket(AF_INET, SOCK_STREAM, 0);
-		if (this->listening_socket == INVALID_SOCKET) {
+		listening_socket = socket(AF_INET, SOCK_STREAM, 0);
+		if (listening_socket == INVALID_SOCKET) {
 			cerr << "Can't create socket! quitting" << endl;
 			return;
 		}
@@ -40,18 +35,16 @@ void Server::start() {
 		hint.sin_port = htons(PORT);
 		hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
-		bind(this->listening_socket, (sockaddr*)&hint, sizeof(hint));
-
-        cout << "Server is up and listening..." << endl;
+		bind(listening_socket, (sockaddr*)&hint, sizeof(hint));
 
 		// tell winsock the socket is for listening
-		listen(this->listening_socket, SOMAXCONN);
+		listen(listening_socket, SOMAXCONN);
 
 		// wait for connection
-		sockaddr_in client; // client sockaddr_in
+		sockaddr_in client;
 		int clientSize = sizeof(client);
 
-		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
+		SOCKET clientSocket = accept(listening_socket, (sockaddr*)&client, &clientSize);
 
 		// sockets_q.push(clientSocket);
 
@@ -73,13 +66,16 @@ void Server::start() {
 		}
 
 		closesocket(listening_socket);
-
-		this->clients_thread_queue.push(thread(handle_client, clientSocket, host, service, client));
+		//receive_data(clientSocket, host, service, client);
+		threads.push(thread(receive_data, clientSocket, host, service, client));
+		//threads.front().detach();
+		//threads.front().join();
 	}
 }
 
-void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client) {
-    string requestStr;  // client's message
+void receive_data(SOCKET clientSocket, string host, string port, sockaddr_in client) {
+	
+	string requestStr;
 	const unsigned int buffer_size = 4096;
 
 	char buffer[buffer_size];
@@ -105,6 +101,8 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 		}
 
 		if (requestStr != "") {
+			// don't know why deleted the last char. check it...
+			// cout << host + " " + port + "> " + requestStr.replace(requestStr.length() - 1, 1, "") << endl;
 			if (requestStr[requestStr.size() - 1] == '\n')
 				cout << host + " " + port + "> " + requestStr;
 			else
@@ -116,16 +114,38 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 			closesocket(clientSocket);
 			return;
 		}
+		
+		/*closesocket(clientSocket);
+		return;*/
 	}
+
 }
 
-// here all the logic of handling the client's request will be implemented
-// void Server::handle_data(SOCKET clientSocket, string host, string port, string requestStr) {
-//     response_to_client(clientSocket, requestStr);
-// }
-
-void Server::response_to_client(SOCKET clientSocket, string res) {
-	string response = "Server> " + res + "\n";
+void handle_data(SOCKET clientSocket, string host, string port, string requestStr) {
+	string response = "Server> " + requestStr + "\n";
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
+
+int main() {
+	sockets_q = queue<SOCKET>();
+	
+	// init winsock
+	WSADATA wsData;
+	WORD ver = MAKEWORD(2, 2);
+	
+	int wsOk = WSAStartup(ver, &wsData);
+	if (wsOk != 0) {
+		cerr << "Can't initialize winwock! quitting" << endl;
+		return 0;
+	}
+	// winsock is initialized
+
+	cout << "server is up!" << endl;
+	listen_socket();
+
+	WSACleanup();
+
+	return 0;
+}
+
 
