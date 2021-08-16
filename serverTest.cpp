@@ -1,14 +1,40 @@
-#include "source.h"
+#include "serverTest.h"
 
 
 Server::Server() {
 	cout << "When calling the function start it must be called in a new thread!" << endl;
+	
 	this->clients_thread_queue = queue<thread>();
+	this->clients_sockets_queue = list<SOCKET>();
+
+	this->LogFile.open("log.txt", ios_base::app);
 }
 
 Server::~Server() {
+	this->LogFile.close();
+	
+	cout << "dump sockets" << endl;
+
+	while (!this->clients_sockets_queue.empty()) {
+		cout << "close sockets" << this->clients_sockets_queue.front() << endl;
+		closesocket(this->clients_sockets_queue.front());
+		this->clients_sockets_queue.pop_front();
+	}
+
+	//while (!this->clients_thread_queue.empty()) {
+	//	cout << "kill thread" << this->clients_thread_queue.front().get_id() << endl;
+	//	this->clients_thread_queue.front().~thread();
+	//	this->clients_thread_queue.pop();
+	//}
+
+
+
+	
 	WSACleanup();
+
+
 }
+
 
 boolean Server::init() {
 	// init winsock
@@ -25,8 +51,18 @@ boolean Server::init() {
 	return true;
 }
 
+void Server::server_control() {
+	string input = "";
+	while (input != "exit")
+		cin >> input;
+	this->~Server();
+	exit(0);
+}
+
 void Server::start() {
 	cout << "Starting server..." << endl;
+	
+	thread th(&Server::server_control, this);
 
 	while (true) {
 
@@ -44,7 +80,7 @@ void Server::start() {
 
 		bind(this->listening_socket, (sockaddr*)&hint, sizeof(hint));
 
-		cout << "Server is listening to clients..." << endl;
+		cout << "Server is listening to client..." << endl;
 
 		// tell winsock the socket is for listening
 		listen(this->listening_socket, SOMAXCONN);
@@ -55,7 +91,7 @@ void Server::start() {
 
 		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
 
-		// sockets_q.push(clientSocket);
+		this->clients_sockets_queue.push_back(clientSocket);
 
 		char host[NI_MAXHOST];		// client's remote name
 		char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
@@ -76,15 +112,15 @@ void Server::start() {
 
 		closesocket(listening_socket);
 
-		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
+		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client, this->clients_sockets_queue.size() - 1));
 	}
 }
 
-void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client) {
+void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client, int vector_index) {
 	string requestStr;  // client's message
 	const unsigned int buffer_size = 4096;
 
-	char buffer[buffer_size];	
+	char buffer[buffer_size];
 
 	while (true) {
 		ZeroMemory(buffer, buffer_size);
@@ -108,15 +144,21 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 		}
 
 		if (requestStr != "") {
-			if (requestStr[requestStr.size() - 1] == '\n')
-				cout << host + " " + port + "> " + requestStr;
-			else
-				cout << host + " " + port + "> " + requestStr << endl;
+			if (requestStr[requestStr.size() - 1] == '\n') {
+				this->LogFile << host + " " + port + "> " + requestStr;
+				//cout << host + " " + port + "> " + requestStr;
+			}
+			else {
+				this->LogFile << host + " " + port + "> " + requestStr + "\n";
+				//cout << host + " " + port + "> " + requestStr << endl;
+			}
 
 			handle_data(clientSocket, host, port, requestStr);
 		}
 		else {
 			cout << "Client disconnected!" << endl;
+			this->clients_sockets_queue.remove(clientSocket);
+			this->LogFile.close();
 			closesocket(clientSocket);
 			return;
 		}
@@ -125,14 +167,11 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 
 // here all the logic of handling the client's request will be implemented
 void Server::handle_data(SOCKET clientSocket, string host, string port, string requestStr) {
-    response_to_client(clientSocket, requestStr);
+	response_to_client(clientSocket, requestStr);
 }
 
 void Server::response_to_client(SOCKET clientSocket, string res) {
 	string response = "Server> " + res + "\n";
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
-
-
-
 
