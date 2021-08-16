@@ -20,6 +20,9 @@ class Server {
         void response_to_client(SOCKET clientSocket, string requestStr);
 
     private:
+        void close(string, SOCKET);
+
+
         SOCKET listening_socket;
         queue<thread> clients_thread_queue;
 };

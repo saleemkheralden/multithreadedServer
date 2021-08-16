@@ -56,7 +56,7 @@ void Server::server_control() {
 	while (input != "exit")
 		cin >> input;
 	this->~Server();
-	exit(0);
+	// exit(0);
 }
 
 void Server::start() {
@@ -112,15 +112,23 @@ void Server::start() {
 
 		closesocket(listening_socket);
 
-		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client, this->clients_sockets_queue.size() - 1));
+
+		// this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
+		// try declaring thread without pushing it to queue
+		thread(&Server::handle_client, this, clientSocket, host, service, client);
 	}
 }
 
-void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client, int vector_index) {
+void Server::close(string msg, SOCKET clientSocket) {
+	cout << msg << endl;
+	closesocket(clientSocket);
+}
+
+void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client) {
 	string requestStr;  // client's message
 	const unsigned int buffer_size = 4096;
 
-	char buffer[buffer_size];
+	char buffer[buffer_size];	
 
 	while (true) {
 		ZeroMemory(buffer, buffer_size);
@@ -128,38 +136,30 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 
 		try {
 			bytesReceived = recv(clientSocket, buffer, buffer_size, 0);
-		}
-		catch (exception e) {
-			cout << "Client disconnected! " << endl;
-			closesocket(clientSocket);
+		} catch (exception e) {
+			close("Client disconnected! ", clientSocket);
 			return;
 		}
 
 		requestStr = string(buffer, 0, bytesReceived);
 
 		if (bytesReceived == SOCKET_ERROR) {
-			cerr << "Error in receive_data()! qutting " << host + " " + port << endl;
-			closesocket(clientSocket);
+			close("Error in receive_data()! qutting " + host + " " + port, clientSocket) ;
 			return;
 		}
 
 		if (requestStr != "") {
 			if (requestStr[requestStr.size() - 1] == '\n') {
 				this->LogFile << host + " " + port + "> " + requestStr;
-				//cout << host + " " + port + "> " + requestStr;
-			}
-			else {
+				// cout << host + " " + port + "> " + requestStr;
+			} else {
 				this->LogFile << host + " " + port + "> " + requestStr + "\n";
-				//cout << host + " " + port + "> " + requestStr << endl;
+				// cout << host + " " + port + "> " + requestStr << endl;
 			}
 
 			handle_data(clientSocket, host, port, requestStr);
-		}
-		else {
-			cout << "Client disconnected!" << endl;
-			this->clients_sockets_queue.remove(clientSocket);
-			this->LogFile.close();
-			closesocket(clientSocket);
+		} else {
+			close("Client disconnected! ", clientSocket);
 			return;
 		}
 	}
@@ -174,4 +174,12 @@ void Server::response_to_client(SOCKET clientSocket, string res) {
 	string response = "Server> " + res + "\n";
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
+
+
+
+
+
+
+
+
 

@@ -21,12 +21,14 @@ public:
     ~Server();
     boolean init();
     void start();
-    void handle_client(SOCKET, string, string, sockaddr_in, int);
+    void handle_client(SOCKET, string, string, sockaddr_in);
     void handle_data(SOCKET, string, string, string);
     void response_to_client(SOCKET, string);
     void server_control();
 
 private:
+    void close(string, SOCKET);
+
     SOCKET listening_socket;
     queue<thread> clients_thread_queue;
     //vector<SOCKET> clients_sockets_queue;
