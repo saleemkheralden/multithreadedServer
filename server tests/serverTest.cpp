@@ -29,10 +29,12 @@ void Server::server_control() {
 			string msg(str_arr);
 			msg = msg.erase(0, 1);
 
-			cout << "will be broadcast [" << msg << "]" << endl;
-
-			for (SOCKET soc : this->clients_sockets_list)
-				this->response_to_client(soc, msg);
+			if (msg != "") {
+				cout << "broadcast [" << msg << "] sent" << endl;
+			
+				for (SOCKET soc : this->clients_sockets_list)
+					this->response_to_client(soc, msg);
+			}
 		}
 		else if (this->cmd == "exit") {
 			this->running = false;
@@ -176,11 +178,10 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 
 // here all the logic of handling the client's request will be implemented
 void Server::handle_data(SOCKET clientSocket, string host, string port, string requestStr) {
-	response_to_client(clientSocket, requestStr);
+	response_to_client(clientSocket, "Server> " + requestStr + "\n");
 }
 
-void Server::response_to_client(SOCKET clientSocket, string res) {
-	string response = "Server> " + res + "\n";
+void Server::response_to_client(SOCKET clientSocket, string response) {
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
 
