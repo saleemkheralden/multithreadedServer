@@ -63,12 +63,9 @@ void Server::start() {
 		ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
 		ZeroMemory(service, NI_MAXSERV);
 
-		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
-		{
+		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
 			cout << host << " connected on port " << service << endl;
-		}
-		else
-		{
+		} else {
 			inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
 			cout << host << " connected on port " <<
 				ntohs(client.sin_port) << endl;
@@ -78,6 +75,11 @@ void Server::start() {
 
 		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
 	}
+}
+
+void Server::close(string msg, SOCKET clientSocket) {
+	cout << msg << endl;
+	closesocket(clientSocket);
 }
 
 void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client) {
@@ -94,16 +96,14 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 			bytesReceived = recv(clientSocket, buffer, buffer_size, 0);
 		}
 		catch (exception e) {
-			cout << "Client disconnected! " << endl;
-			closesocket(clientSocket);
+			close("Client disconnected! ", clientSocket);
 			return;
 		}
 
 		requestStr = string(buffer, 0, bytesReceived);
 
 		if (bytesReceived == SOCKET_ERROR) {
-			cerr << "Error in receive_data()! qutting " << host + " " + port << endl;
-			closesocket(clientSocket);
+			close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
 			return;
 		}
 
@@ -116,8 +116,7 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 			handle_data(clientSocket, host, port, requestStr);
 		}
 		else {
-			cout << "Client disconnected!" << endl;
-			closesocket(clientSocket);
+			close("Client disconnected! ", clientSocket);
 			return;
 		}
 	}

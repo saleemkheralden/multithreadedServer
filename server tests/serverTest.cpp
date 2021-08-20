@@ -3,38 +3,44 @@
 
 Server::Server() {
 	cout << "When calling the function start it must be called in a new thread!" << endl;
-	
 	this->clients_thread_queue = queue<thread>();
-	this->clients_sockets_queue = list<SOCKET>();
-
-	this->LogFile.open("log.txt", ios_base::app);
+	this->clients_sockets_list = list<SOCKET>();
+	this->log = new LogHandler();
+	this->running = true;
 }
 
 Server::~Server() {
-	this->LogFile.close();
-	
-	cout << "dump sockets" << endl;
-
-	while (!this->clients_sockets_queue.empty()) {
-		cout << "close sockets" << this->clients_sockets_queue.front() << endl;
-		closesocket(this->clients_sockets_queue.front());
-		this->clients_sockets_queue.pop_front();
-	}
-
-	//while (!this->clients_thread_queue.empty()) {
-	//	cout << "kill thread" << this->clients_thread_queue.front().get_id() << endl;
-	//	this->clients_thread_queue.front().~thread();
-	//	this->clients_thread_queue.pop();
-	//}
-
-
-
-	
+	cout << "deconstructor" << endl;
+	delete this->log;
 	WSACleanup();
-
-
+	cout << "end deconstructor" << endl;
 }
 
+void Server::server_control() {
+	const unsigned int MAX_LEN = 200;
+	for (;;) {
+		cin >> this->cmd;
+
+		if (false)
+			continue;
+		else if (this->cmd.find("broadcast") != string::npos) {
+			char str_arr[MAX_LEN] = "";
+			cin.getline(str_arr, MAX_LEN);
+			string msg(str_arr);
+			msg = msg.erase(0, 1);
+
+			cout << "will be broadcast [" << msg << "]" << endl;
+
+			for (SOCKET soc : this->clients_sockets_list)
+				this->response_to_client(soc, msg);
+		}
+		else if (this->cmd == "exit") {
+			this->running = false;
+			return;
+		}
+		 
+	}
+}
 
 boolean Server::init() {
 	// init winsock
@@ -51,20 +57,15 @@ boolean Server::init() {
 	return true;
 }
 
-void Server::server_control() {
-	string input = "";
-	while (input != "exit")
-		cin >> input;
-	this->~Server();
-	// exit(0);
-}
-
 void Server::start() {
 	cout << "Starting server..." << endl;
 	
-	thread th(&Server::server_control, this);
+	// starting threads
+	thread serverControlThread = thread(&Server::server_control, this);
+	thread logControlThread = thread(&LogHandler::run, this->log);
 
-	while (true) {
+
+	while (this->running) {
 
 		this->listening_socket = socket(AF_INET, SOCK_STREAM, 0);
 		if (this->listening_socket == INVALID_SOCKET) {
@@ -80,7 +81,7 @@ void Server::start() {
 
 		bind(this->listening_socket, (sockaddr*)&hint, sizeof(hint));
 
-		cout << "Server is listening to client..." << endl;
+		cout << "Server is listening to clients..." << endl;
 
 		// tell winsock the socket is for listening
 		listen(this->listening_socket, SOMAXCONN);
@@ -91,7 +92,18 @@ void Server::start() {
 
 		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
 
-		this->clients_sockets_queue.push_back(clientSocket);
+		if (!this->running) {
+			closesocket(clientSocket);
+			closesocket(listening_socket);
+			this->~Server();
+			break;
+		}
+
+		this->clients_sockets_list.push_back(clientSocket);
+
+		cout << "sockets list: " << endl;
+		for (SOCKET s : this->clients_sockets_list)
+			cout << s << endl;
 
 		char host[NI_MAXHOST];		// client's remote name
 		char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
@@ -99,12 +111,10 @@ void Server::start() {
 		ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
 		ZeroMemory(service, NI_MAXSERV);
 
-		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
-		{
+		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
 			cout << host << " connected on port " << service << endl;
 		}
-		else
-		{
+		else {
 			inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
 			cout << host << " connected on port " <<
 				ntohs(client.sin_port) << endl;
@@ -112,15 +122,13 @@ void Server::start() {
 
 		closesocket(listening_socket);
 
-
-		// this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
-		// try declaring thread without pushing it to queue
-		thread(&Server::handle_client, this, clientSocket, host, service, client);
+		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
 	}
 }
 
 void Server::close(string msg, SOCKET clientSocket) {
 	cout << msg << endl;
+	this->clients_sockets_list.remove(clientSocket);
 	closesocket(clientSocket);
 }
 
@@ -128,15 +136,16 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 	string requestStr;  // client's message
 	const unsigned int buffer_size = 4096;
 
-	char buffer[buffer_size];	
+	char buffer[buffer_size];
 
-	while (true) {
+	while (this->running) {
 		ZeroMemory(buffer, buffer_size);
 		int bytesReceived;
 
 		try {
 			bytesReceived = recv(clientSocket, buffer, buffer_size, 0);
-		} catch (exception e) {
+		}
+		catch (exception e) {
 			close("Client disconnected! ", clientSocket);
 			return;
 		}
@@ -144,21 +153,21 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 		requestStr = string(buffer, 0, bytesReceived);
 
 		if (bytesReceived == SOCKET_ERROR) {
-			close("Error in receive_data()! qutting " + host + " " + port, clientSocket) ;
+			close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
 			return;
 		}
 
 		if (requestStr != "") {
-			if (requestStr[requestStr.size() - 1] == '\n') {
-				this->LogFile << host + " " + port + "> " + requestStr;
-				// cout << host + " " + port + "> " + requestStr;
-			} else {
-				this->LogFile << host + " " + port + "> " + requestStr + "\n";
-				// cout << host + " " + port + "> " + requestStr << endl;
-			}
+			if (requestStr[requestStr.size() - 1] == '\n')
+				LogHandler::log_queue.push(host + " " + port + "> " + requestStr);
+				//cout << host + " " + port + "> " + requestStr;
+			else
+				LogHandler::log_queue.push(host + " " + port + "> " + requestStr + "\n");
+				//cout << host + " " + port + "> " + requestStr << endl;
 
 			handle_data(clientSocket, host, port, requestStr);
-		} else {
+		}
+		else {
 			close("Client disconnected! ", clientSocket);
 			return;
 		}
@@ -174,11 +183,6 @@ void Server::response_to_client(SOCKET clientSocket, string res) {
 	string response = "Server> " + res + "\n";
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
-
-
-
-
-
 
 
 
