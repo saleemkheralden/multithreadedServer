@@ -1,13 +1,47 @@
-#include "source.h"
+#include "serverTest.h"
 
 
 Server::Server() {
 	cout << "When calling the function start it must be called in a new thread!" << endl;
 	this->clients_thread_queue = queue<thread>();
+	this->clients_sockets_list = list<SOCKET>();
+	this->log = new LogHandler();
+	this->running = true;
 }
 
 Server::~Server() {
+	cout << "deconstructor" << endl;
+	delete this->log;
 	WSACleanup();
+	cout << "end deconstructor" << endl;
+}
+
+void Server::server_control() {
+	const unsigned int MAX_LEN = 200;
+	for (;;) {
+		cin >> this->cmd;
+
+		if (false)
+			continue;
+		else if (this->cmd.find("broadcast") != string::npos) {
+			char str_arr[MAX_LEN] = "";
+			cin.getline(str_arr, MAX_LEN);
+			string msg(str_arr);
+			msg = msg.erase(0, 1);
+
+			if (msg != "") {
+				cout << "broadcast [" << msg << "] sent" << endl;
+			
+				for (SOCKET soc : this->clients_sockets_list)
+					this->response_to_client(soc, msg);
+			}
+		}
+		else if (this->cmd == "exit") {
+			this->running = false;
+			return;
+		}
+		 
+	}
 }
 
 boolean Server::init() {
@@ -27,8 +61,13 @@ boolean Server::init() {
 
 void Server::start() {
 	cout << "Starting server..." << endl;
+	
+	// starting threads
+	thread serverControlThread = thread(&Server::server_control, this);
+	thread logControlThread = thread(&LogHandler::run, this->log);
 
-	while (true) {
+
+	while (this->running) {
 
 		this->listening_socket = socket(AF_INET, SOCK_STREAM, 0);
 		if (this->listening_socket == INVALID_SOCKET) {
@@ -55,7 +94,18 @@ void Server::start() {
 
 		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
 
-		// sockets_q.push(clientSocket);
+		if (!this->running) {
+			closesocket(clientSocket);
+			closesocket(listening_socket);
+			this->~Server();
+			break;
+		}
+
+		this->clients_sockets_list.push_back(clientSocket);
+
+		cout << "sockets list: " << endl;
+		for (SOCKET s : this->clients_sockets_list)
+			cout << s << endl;
 
 		char host[NI_MAXHOST];		// client's remote name
 		char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
@@ -63,12 +113,10 @@ void Server::start() {
 		ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
 		ZeroMemory(service, NI_MAXSERV);
 
-		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)
-		{
+		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
 			cout << host << " connected on port " << service << endl;
 		}
-		else
-		{
+		else {
 			inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
 			cout << host << " connected on port " <<
 				ntohs(client.sin_port) << endl;
@@ -80,13 +128,19 @@ void Server::start() {
 	}
 }
 
+void Server::close(string msg, SOCKET clientSocket) {
+	cout << msg << endl;
+	this->clients_sockets_list.remove(clientSocket);
+	closesocket(clientSocket);
+}
+
 void Server::handle_client(SOCKET clientSocket, string host, string port, sockaddr_in client) {
 	string requestStr;  // client's message
 	const unsigned int buffer_size = 4096;
 
-	char buffer[buffer_size];	
+	char buffer[buffer_size];
 
-	while (true) {
+	while (this->running) {
 		ZeroMemory(buffer, buffer_size);
 		int bytesReceived;
 
@@ -94,30 +148,29 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 			bytesReceived = recv(clientSocket, buffer, buffer_size, 0);
 		}
 		catch (exception e) {
-			cout << "Client disconnected! " << endl;
-			closesocket(clientSocket);
+			close("Client disconnected! ", clientSocket);
 			return;
 		}
 
 		requestStr = string(buffer, 0, bytesReceived);
 
 		if (bytesReceived == SOCKET_ERROR) {
-			cerr << "Error in receive_data()! qutting " << host + " " + port << endl;
-			closesocket(clientSocket);
+			close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
 			return;
 		}
 
 		if (requestStr != "") {
 			if (requestStr[requestStr.size() - 1] == '\n')
-				cout << host + " " + port + "> " + requestStr;
+				LogHandler::log_queue.push(host + " " + port + "> " + requestStr);
+				//cout << host + " " + port + "> " + requestStr;
 			else
-				cout << host + " " + port + "> " + requestStr << endl;
+				LogHandler::log_queue.push(host + " " + port + "> " + requestStr + "\n");
+				//cout << host + " " + port + "> " + requestStr << endl;
 
 			handle_data(clientSocket, host, port, requestStr);
 		}
 		else {
-			cout << "Client disconnected!" << endl;
-			closesocket(clientSocket);
+			close("Client disconnected! ", clientSocket);
 			return;
 		}
 	}
@@ -125,11 +178,10 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 
 // here all the logic of handling the client's request will be implemented
 void Server::handle_data(SOCKET clientSocket, string host, string port, string requestStr) {
-    response_to_client(clientSocket, requestStr);
+	response_to_client(clientSocket, "Server> " + requestStr + "\n");
 }
 
-void Server::response_to_client(SOCKET clientSocket, string res) {
-	string response = "Server> " + res + "\n";
+void Server::response_to_client(SOCKET clientSocket, string response) {
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
 
