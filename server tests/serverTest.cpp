@@ -12,7 +12,19 @@ Server::Server() {
 Server::~Server() {
 	cout << "deconstructor" << endl;
 	delete this->log;
-	WSACleanup();
+	for	(SOCKET soc : this->clients_sockets_list) {
+		this->clients_sockets_list.remove(soc);
+		closesocket(soc);
+	}
+	// shutdown(socket, how)
+	/**
+	 * how : 
+	 * 	0	recive
+	 *  1	send
+	 * 	2	both
+	 * */
+	
+	WSACleanup(); 
 	cout << "end deconstructor" << endl;
 }
 
@@ -24,6 +36,8 @@ void Server::server_control() {
 		if (false)
 			continue;
 		else if (this->cmd.find("broadcast") != string::npos) {
+			// else if (this->cmd == "broadcast")
+			// might change it to this
 			char str_arr[MAX_LEN] = "";
 			cin.getline(str_arr, MAX_LEN);
 			string msg(str_arr);
@@ -92,7 +106,7 @@ void Server::start() {
 		sockaddr_in client; // client sockaddr_in
 		int clientSize = sizeof(client);
 
-		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
+		this->clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
 
 		if (!this->running) {
 			closesocket(clientSocket);
@@ -126,6 +140,8 @@ void Server::start() {
 
 		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
 	}
+
+	Sleep(2000);
 }
 
 void Server::close(string msg, SOCKET clientSocket) {
