@@ -3,7 +3,7 @@
 #include <queue>
 #include <list>
 #include <WS2tcpip.h> // sockets library
-#include "LogHandler.h"
+// #include "LogHandler.h"
 
 #define PORT 56000
 
@@ -38,7 +38,7 @@ private:
 
     queue<thread> clients_thread_queue;
     list<SOCKET> clients_sockets_list;
-    LogHandler* log;
+    // LogHandler log();
 };
 
 

@@ -5,13 +5,11 @@ Server::Server() {
 	cout << "When calling the function start it must be called in a new thread!" << endl;
 	this->clients_thread_queue = queue<thread>();
 	this->clients_sockets_list = list<SOCKET>();
-	this->log = new LogHandler();
 	this->running = true;
 }
 
 Server::~Server() {
 	cout << "deconstructor" << endl;
-	delete this->log;
 	for	(SOCKET soc : this->clients_sockets_list) {
 		this->clients_sockets_list.remove(soc);
 		closesocket(soc);
@@ -78,12 +76,19 @@ void Server::start() {
 	
 	// starting threads
 	thread serverControlThread = thread(&Server::server_control, this);
-	thread logControlThread = thread(&LogHandler::run, this->log);
+	// thread logControlThread = thread(&LogHandler::run, this->log);
 
 
 	while (this->running) {
 
 		this->listening_socket = socket(AF_INET, SOCK_STREAM, 0);
+		// DWORD timeout = 1 * 1000;
+		// setsockopt(this->listening_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+		// setsockopt(this->clientSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+		
+		// unsigned long nonBlocking = 1;
+		// ioctlsocket(this->clientSocket, FIONBIO, &nonBlocking);
+
 		if (this->listening_socket == INVALID_SOCKET) {
 			cerr << "Can't create socket! quitting" << endl;
 			return;
@@ -177,11 +182,11 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 
 		if (requestStr != "") {
 			if (requestStr[requestStr.size() - 1] == '\n')
-				LogHandler::log_queue.push(host + " " + port + "> " + requestStr);
-				//cout << host + " " + port + "> " + requestStr;
+				// LogHandler::log_queue.push(host + " " + port + "> " + requestStr);
+				cout << host + " " + port + "> " + requestStr;
 			else
-				LogHandler::log_queue.push(host + " " + port + "> " + requestStr + "\n");
-				//cout << host + " " + port + "> " + requestStr << endl;
+				// LogHandler::log_queue.push(host + " " + port + "> " + requestStr + "\n");
+				cout << host + " " + port + "> " + requestStr << endl;
 
 			handle_data(clientSocket, host, port, requestStr);
 		}
@@ -200,7 +205,3 @@ void Server::handle_data(SOCKET clientSocket, string host, string port, string r
 void Server::response_to_client(SOCKET clientSocket, string response) {
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
-
-
-
-
