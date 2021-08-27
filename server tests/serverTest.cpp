@@ -6,6 +6,10 @@ Server::Server() {
 	this->clients_thread_queue = queue<thread>();
 	this->clients_sockets_list = list<SOCKET>();
 	this->running = true;
+	
+	unsigned long nonBlocking = 1;
+	ioctlsocket(this->listening_socket, FIONBIO, &nonBlocking);
+	ioctlsocket(this->clientSocket, FIONBIO, &nonBlocking);
 }
 
 Server::~Server() {
@@ -112,40 +116,39 @@ void Server::start() {
 		int clientSize = sizeof(client);
 
 		this->clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
+		if (this->clientSocket != (unsigned int)(-1)) {
+			// there's connection
+			this->clients_sockets_list.push_back(clientSocket);
 
-		if (!this->running) {
-			closesocket(clientSocket);
-			closesocket(listening_socket);
-			this->~Server();
-			break;
-		}
+			cout << "sockets list: " << endl;
+			for (SOCKET s : this->clients_sockets_list)
+				cout << s << endl;
 
-		this->clients_sockets_list.push_back(clientSocket);
+			char host[NI_MAXHOST];		// client's remote name
+			char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
 
-		cout << "sockets list: " << endl;
-		for (SOCKET s : this->clients_sockets_list)
-			cout << s << endl;
+			ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
+			ZeroMemory(service, NI_MAXSERV);
 
-		char host[NI_MAXHOST];		// client's remote name
-		char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
+			if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
+				cout << host << " connected on port " << service << endl;
+			}
+			else {
+				inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
+				cout << host << " connected on port " <<
+					ntohs(client.sin_port) << endl;
+			}
 
-		ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
-		ZeroMemory(service, NI_MAXSERV);
-
-		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
-			cout << host << " connected on port " << service << endl;
-		}
-		else {
-			inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
-			cout << host << " connected on port " <<
-				ntohs(client.sin_port) << endl;
-		}
-
+			this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
+		} 
+		else
+			cout <<"closing" << endl;
 		closesocket(listening_socket);
-
-		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
 	}
 
+	closesocket(clientSocket);
+	closesocket(listening_socket);
+	this->~Server();
 	Sleep(2000);
 }
 
@@ -175,10 +178,10 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 
 		requestStr = string(buffer, 0, bytesReceived);
 
-		if (bytesReceived == SOCKET_ERROR) {
-			close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
-			return;
-		}
+		// if (bytesReceived == SOCKET_ERROR) {
+		// 	close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
+		// 	return;
+		// }
 
 		if (requestStr != "") {
 			if (requestStr[requestStr.size() - 1] == '\n')
