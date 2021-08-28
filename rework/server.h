@@ -3,6 +3,7 @@
 #include <vector>
 #include <thread>
 #include <list>
+#include <string>
 
 #define PORT 56000
 
@@ -14,7 +15,6 @@ class Server {
 public:
     Server(int);
 
-    boolean init();
     void start();
     // void handle_client(SOCKET, string, string, sockaddr_in);
     // void handle_data(SOCKET, string, string, string);
@@ -25,6 +25,11 @@ public:
 
 private:
     // void close(string, SOCKET);
+
+    boolean init();
+    void handle_client(SOCKET, sockaddr_in);
+    // void get_client_info(string*, string*, sockaddr_in);
+    // void handle_client(SOCKET, string, string, sockaddr_in);
 
     bool running;
     int port;

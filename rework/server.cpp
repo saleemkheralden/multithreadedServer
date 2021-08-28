@@ -26,6 +26,10 @@ boolean Server::init() {
 }
 
 void Server::start() {
+    if (!this->init()) {
+        cerr << "Server init failed!" << endl;
+        return;
+    }
 	cout << "Starting server..." << endl;
     
     while (this->running) {
@@ -65,6 +69,9 @@ void Server::start() {
 
             if (this->clientSocket != (unsigned int)(-1) && this->running) {
                 // start thread
+                this->clients_sockets_list.push_back(this->clientSocket);
+                this->clients_thread_list.push_back(thread(&Server::handle_client, this, clientSocket, client));
+
                 cout << "connected" << endl;
                 break;
             }
@@ -75,10 +82,44 @@ void Server::start() {
     
 }
 
+void Server::handle_client(SOCKET clientSocket, sockaddr_in client) {
+    string address = "", port = "";
+
+    string client_request;
+    const unsigned int buffer_size = 4096;
+    char buffer[buffer_size];
+
+    while (this->running) {
+        ZeroMemory(buffer, buffer_size);
+        int bytesReceived;
+
+        try {
+            bytesReceived = recv(clientSocket, buffer, buffer_size, 0);
+        } catch (exception e) {
+            cerr << "exception in handle_client" << endl;
+            return;
+        }
+
+        if (bytesReceived > 0 ) {
+            client_request = string(buffer, 0, bytesReceived);
+            if (client_request != "") {
+                cout << client_request << endl;
+            } else {
+                return;
+            }
+        }
+
+    }
+
+}
+
+
+
 
 int main() {
     Server s = Server();
-    s.init();
     s.start();
+
     return 0;
 }
+
