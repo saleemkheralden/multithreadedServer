@@ -7,9 +7,19 @@ Server::Server(int port=PORT) {
     this->running = true;
     this->cmd = "";
     this->port = port;
+    cout << "port " << port << endl;
 }
 
-// destructor
+void Server::shutdown() {
+    cout << "shutting down" << endl;
+    while (!this->clients_sockets_list.empty()) {
+        closesocket(this->clients_sockets_list.front());
+        this->clients_sockets_list.pop_front();
+    }
+    cout << "sockets closed" << endl;
+    WSACleanup();
+    cout << "server shutdown" << endl;
+}
 
 boolean Server::init() {
     WSADATA wsData;
@@ -30,8 +40,10 @@ void Server::start() {
         cerr << "Server init failed!" << endl;
         return;
     }
+    bool flag = true;
     cout << "Starting server..." << endl;
-
+    thread serverControlThread = thread(&Server::server_control, this);
+    
     while (this->running) {
 
         this->listening_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -52,7 +64,10 @@ void Server::start() {
 
         bind(this->listening_socket, (sockaddr*)&hint, sizeof(hint));
 
-        cout << "Server is listening to clients..." << endl;
+        if (flag) {
+            cout << "Server is listening to clients..." << endl;
+            flag = false;
+        }
 
         // tell winsock the socket is for listening
         listen(this->listening_socket, SOMAXCONN);
@@ -79,7 +94,7 @@ void Server::start() {
 
         closesocket(this->listening_socket);
     } // end while running
-
+    Sleep(3000);
 }
 
 void Server::handle_client(SOCKET clientSocket, sockaddr_in client) {
@@ -126,8 +141,8 @@ void Server::handle_client(SOCKET clientSocket, sockaddr_in client) {
             closesocket(clientSocket);
             break;
         }
-
     }
+    Sleep(2000);
 }
 
 string Server::get_ip(sockaddr_in client) {
@@ -137,9 +152,38 @@ string Server::get_ip(sockaddr_in client) {
         to_string((int)(client.sin_addr.S_un.S_un_b.s_b4));
 }
 
+void Server::server_control() {
+    const unsigned int MAX_LEN = 200;
+	for (;;) {
+		cin >> this->cmd;
 
+		if (false)
+			continue;
+		else if (this->cmd.find("broadcast") != string::npos) {
+			// else if (this->cmd == "broadcast")
+			// might change it to this
+			char str_arr[MAX_LEN] = "";
+			cin.getline(str_arr, MAX_LEN);
+			string msg(str_arr);
+			msg = msg.erase(0, 1);
 
+			if (msg != "") {
+				cout << "broadcast [" << msg << "] sent" << endl;
+			
+				for (SOCKET soc : this->clients_sockets_list)
+					this->response_to_client(soc, msg + '\n');
+			}
+		}
+		else if (this->cmd == "exit") {
+			this->running = false;
+            this->shutdown();
+			return;
+		}
+		 
+	}
+}
 
-
-
+void Server::response_to_client(SOCKET clientSocket, string response) {
+	send(clientSocket, (response).c_str(), response.size() + 1, 0);
+}
 

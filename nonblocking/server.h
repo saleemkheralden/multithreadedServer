@@ -13,24 +13,16 @@ using namespace std;
 
 class Server {
 public:
-    Server(int);
-
+    Server(int port=PORT);
     void start();
-    // void handle_client(SOCKET, string, string, sockaddr_in);
-    // void handle_data(SOCKET, string, string, string);
-    // void response_to_client(SOCKET, string);
-
-    // void server_control();
-
 
 private:
-    // void close(string, SOCKET);
-
     boolean init();
     void handle_client(SOCKET, sockaddr_in);
     string get_ip(sockaddr_in);
-
-    // void handle_client(SOCKET, string, string, sockaddr_in);
+    void server_control();
+    void response_to_client(SOCKET, string);
+    void shutdown();
 
     bool running;
     int port;
