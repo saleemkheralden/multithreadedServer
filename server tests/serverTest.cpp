@@ -16,19 +16,7 @@ Server::Server() {
 Server::~Server() {
 	cout << "deconstructor" << endl;
 	delete this->log;
-	for	(SOCKET soc : this->clients_sockets_list) {
-		this->clients_sockets_list.remove(soc);
-		closesocket(soc);
-	}
-	// shutdown(socket, how)
-	/**
-	 * how : 
-	 * 	0	recive
-	 *  1	send
-	 * 	2	both
-	 * */
-	
-	WSACleanup(); 
+	WSACleanup();
 	cout << "end deconstructor" << endl;
 }
 
@@ -40,8 +28,6 @@ void Server::server_control() {
 		if (false)
 			continue;
 		else if (this->cmd.find("broadcast") != string::npos) {
-			// else if (this->cmd == "broadcast")
-			// might change it to this
 			char str_arr[MAX_LEN] = "";
 			cin.getline(str_arr, MAX_LEN);
 			string msg(str_arr);
@@ -110,10 +96,14 @@ void Server::start() {
 		sockaddr_in client; // client sockaddr_in
 		int clientSize = sizeof(client);
 
+<<<<<<< HEAD
 		this->clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
 		if (this->clientSocket != (unsigned int)(-1)) {
 			// there's connection
 			this->clients_sockets_list.push_back(clientSocket);
+=======
+		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
+>>>>>>> parent of 373633c (added closing sockets in server destructor)
 
 			cout << "sockets list: " << endl;
 			for (SOCKET s : this->clients_sockets_list)
@@ -140,11 +130,14 @@ void Server::start() {
 			cout <<"closing" << endl;
 		closesocket(listening_socket);
 	}
+<<<<<<< HEAD
 
 	closesocket(clientSocket);
 	closesocket(listening_socket);
 	this->~Server();
 	Sleep(2000);
+=======
+>>>>>>> parent of 373633c (added closing sockets in server destructor)
 }
 
 void Server::close(string msg, SOCKET clientSocket) {

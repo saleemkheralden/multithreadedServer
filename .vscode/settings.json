@@ -1,5 +1,6 @@
 {
     "files.associations": {
+<<<<<<< HEAD
         "iostream": "cpp",
 <<<<<<< HEAD
         "thread": "cpp",
@@ -10,5 +11,8 @@
 =======
         "thread": "cpp"
 >>>>>>> parent of 1f3f886 (remove logHandler)
+=======
+        "iostream": "cpp"
+>>>>>>> parent of 373633c (added closing sockets in server destructor)
     }
 }

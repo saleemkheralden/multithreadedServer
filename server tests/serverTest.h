@@ -32,10 +32,7 @@ private:
     bool running;
 
     string cmd;
-    
     SOCKET listening_socket;
-    SOCKET clientSocket;
-
     queue<thread> clients_thread_queue;
     list<SOCKET> clients_sockets_list;
     LogHandler* log;
