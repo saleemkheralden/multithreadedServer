@@ -5,18 +5,24 @@ Server::Server() {
 	cout << "When calling the function start it must be called in a new thread!" << endl;
 	this->clients_thread_queue = queue<thread>();
 	this->clients_sockets_list = list<SOCKET>();
-	this->log = new LogHandler();
 	this->running = true;
-	
-	unsigned long nonBlocking = 1;
-	ioctlsocket(this->listening_socket, FIONBIO, &nonBlocking);
-	ioctlsocket(this->clientSocket, FIONBIO, &nonBlocking);
 }
 
 Server::~Server() {
 	cout << "deconstructor" << endl;
-	delete this->log;
-	WSACleanup();
+	for	(SOCKET soc : this->clients_sockets_list) {
+		this->clients_sockets_list.remove(soc);
+		closesocket(soc);
+	}
+	// shutdown(socket, how)
+	/**
+	 * how : 
+	 * 	0	recive
+	 *  1	send
+	 * 	2	both
+	 * */
+	
+	WSACleanup(); 
 	cout << "end deconstructor" << endl;
 }
 
@@ -28,6 +34,8 @@ void Server::server_control() {
 		if (false)
 			continue;
 		else if (this->cmd.find("broadcast") != string::npos) {
+			// else if (this->cmd == "broadcast")
+			// might change it to this
 			char str_arr[MAX_LEN] = "";
 			cin.getline(str_arr, MAX_LEN);
 			string msg(str_arr);
@@ -68,8 +76,6 @@ void Server::start() {
 	
 	// starting threads
 	thread serverControlThread = thread(&Server::server_control, this);
-	thread logControlThread = thread(&LogHandler::run, this->log);
-
 
 	while (this->running) {
 
@@ -96,48 +102,42 @@ void Server::start() {
 		sockaddr_in client; // client sockaddr_in
 		int clientSize = sizeof(client);
 
-<<<<<<< HEAD
 		this->clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
-		if (this->clientSocket != (unsigned int)(-1)) {
-			// there's connection
-			this->clients_sockets_list.push_back(clientSocket);
-=======
-		SOCKET clientSocket = accept(this->listening_socket, (sockaddr*)&client, &clientSize);
->>>>>>> parent of 373633c (added closing sockets in server destructor)
 
-			cout << "sockets list: " << endl;
-			for (SOCKET s : this->clients_sockets_list)
-				cout << s << endl;
+		if (!this->running) {
+			closesocket(clientSocket);
+			closesocket(listening_socket);
+			this->~Server();
+			break;
+		}
 
-			char host[NI_MAXHOST];		// client's remote name
-			char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
+		this->clients_sockets_list.push_back(clientSocket);
 
-			ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
-			ZeroMemory(service, NI_MAXSERV);
+		cout << "sockets list: " << endl;
+		for (SOCKET s : this->clients_sockets_list)
+			cout << s << endl;
 
-			if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
-				cout << host << " connected on port " << service << endl;
-			}
-			else {
-				inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
-				cout << host << " connected on port " <<
-					ntohs(client.sin_port) << endl;
-			}
+		char host[NI_MAXHOST];		// client's remote name
+		char service[NI_MAXSERV];	// service (i.e. port) the client is connected on
 
-			this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
-		} 
-		else
-			cout <<"closing" << endl;
+		ZeroMemory(host, NI_MAXHOST); // same as memset(host, 0, NI_MAXHOST);
+		ZeroMemory(service, NI_MAXSERV);
+
+		if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
+			cout << host << " connected on port " << service << endl;
+		}
+		else {
+			inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
+			cout << host << " connected on port " <<
+				ntohs(client.sin_port) << endl;
+		}
+
 		closesocket(listening_socket);
-	}
-<<<<<<< HEAD
 
-	closesocket(clientSocket);
-	closesocket(listening_socket);
-	this->~Server();
+		this->clients_thread_queue.push(thread(&Server::handle_client, this, clientSocket, host, service, client));
+	}
+
 	Sleep(2000);
-=======
->>>>>>> parent of 373633c (added closing sockets in server destructor)
 }
 
 void Server::close(string msg, SOCKET clientSocket) {
@@ -160,28 +160,27 @@ void Server::handle_client(SOCKET clientSocket, string host, string port, sockad
 			bytesReceived = recv(clientSocket, buffer, buffer_size, 0);
 		}
 		catch (exception e) {
-			close("Client disconnected! ", clientSocket);
+			close("Client disconnected! in exception", clientSocket);
 			return;
 		}
 
 		requestStr = string(buffer, 0, bytesReceived);
 
-		// if (bytesReceived == SOCKET_ERROR) {
-		// 	close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
-		// 	return;
-		// }
+		if (bytesReceived == SOCKET_ERROR) {
+			close("Error in receive_data()! qutting " + host + " " + port, clientSocket);
+			return;
+		}
 
 		if (requestStr != "") {
 			if (requestStr[requestStr.size() - 1] == '\n')
-				LogHandler::log_queue.push(host + " " + port + "> " + requestStr);
-				//cout << host + " " + port + "> " + requestStr;
+				cout << host + " " + port + "> " + requestStr;
 			else
-				LogHandler::log_queue.push(host + " " + port + "> " + requestStr + "\n");
-				//cout << host + " " + port + "> " + requestStr << endl;
+				cout << host + " " + port + "> " + requestStr << endl;
 
 			handle_data(clientSocket, host, port, requestStr);
 		}
 		else {
+			cout << bytesReceived << endl;
 			close("Client disconnected! ", clientSocket);
 			return;
 		}
@@ -196,7 +195,4 @@ void Server::handle_data(SOCKET clientSocket, string host, string port, string r
 void Server::response_to_client(SOCKET clientSocket, string response) {
 	send(clientSocket, (response).c_str(), response.size() + 1, 0);
 }
-
-
-
 

@@ -19,7 +19,7 @@ public:
     // void handle_client(SOCKET, string, string, sockaddr_in);
     // void handle_data(SOCKET, string, string, string);
     // void response_to_client(SOCKET, string);
-    
+
     // void server_control();
 
 
@@ -28,14 +28,15 @@ private:
 
     boolean init();
     void handle_client(SOCKET, sockaddr_in);
-    // void get_client_info(string*, string*, sockaddr_in);
+    string get_ip(sockaddr_in);
+
     // void handle_client(SOCKET, string, string, sockaddr_in);
 
     bool running;
     int port;
 
     string cmd;
-    
+
     SOCKET listening_socket;
     SOCKET clientSocket;
 
