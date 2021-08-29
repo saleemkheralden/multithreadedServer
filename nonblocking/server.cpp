@@ -1,7 +1,7 @@
 #include "server.h"
 
 
-Server::Server(int port=PORT) {
+Server::Server(int port) {
     this->clients_thread_list = list<thread>();
     this->clients_sockets_list = list<SOCKET>();
     this->running = true;
