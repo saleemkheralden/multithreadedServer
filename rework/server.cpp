@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include "server.h"
 
 
@@ -123,3 +124,5 @@ int main() {
     return 0;
 }
 
+=======
+>>>>>>> parent of 1f3f886 (remove logHandler)

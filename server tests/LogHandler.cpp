@@ -1,6 +1,6 @@
 #include "LogHandler.h"
 
-// queue<string> LogHandler::log_queue = queue<string>();
+queue<string> LogHandler::log_queue = queue<string>();
 
 LogHandler::LogHandler() {
 	this->LogFile.open("log.txt", ios_base::app);

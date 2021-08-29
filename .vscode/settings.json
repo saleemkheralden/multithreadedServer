@@ -1,10 +1,14 @@
 {
     "files.associations": {
         "iostream": "cpp",
+<<<<<<< HEAD
         "thread": "cpp",
         "xstring": "cpp",
         "fstream": "cpp",
         "ostream": "cpp",
         "string": "cpp"
+=======
+        "thread": "cpp"
+>>>>>>> parent of 1f3f886 (remove logHandler)
     }
 }
